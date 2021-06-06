@@ -1,11 +1,13 @@
 version: "3.9"
 services:
   haproxy:
-    image: "haproxy:latest"
+    build:
+      context: ./
+      dockerfile: haproxy/Dockerfile
     ports:
       - 80:80
     volumes:
-      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
       - ./scripts/:/usr/local/etc/haproxy/scripts/
 
   nginx:
