@@ -1,0 +1,17 @@
+version: "3.9"
+services:
+  haproxy:
+    image: "haproxy:latest"
+    ports:
+      - 80:80
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
+      - ./scripts/:/usr/local/etc/haproxy/scripts/
+
+  nginx:
+    image: "nginx:latest"
+
+  redis:
+    image: "redis:latest"
+    ports:
+      - 6379:6379
