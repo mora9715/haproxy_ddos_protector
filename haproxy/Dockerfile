@@ -95,8 +95,26 @@ STOPSIGNAL SIGUSR1
 
 ADD haproxy/docker-entrypoint.sh /usr/local/bin/
 RUN ln -s usr/local/bin/docker-entrypoint.sh / # backwards compat
-RUN apt-get update && apt-get install luarocks -y
-RUN luarocks install luasocket
+
+# This is terrible mess but we need it for simple testing purposes of our POC
+RUN apt-get update && apt-get install libssl-dev make nano wget gcc libreadline-dev unzip git -y
+RUN wget http://www.lua.org/ftp/lua-5.3.5.tar.gz &&\
+    tar -zxf lua-5.3.5.tar.gz &&\
+    cd lua-5.3.5 &&\
+    make linux test &&\
+    make install
+
+RUN wget "https://luarocks.org/releases/luarocks-3.3.1.tar.gz" &&\
+    tar zxpf luarocks-3.3.1.tar.gz &&\
+    cd luarocks-3.3.1 &&\
+    ./configure --with-lua-include=/usr/local/include --lua-version=5.3 --lua-suffix=5.3 &&\
+    make &&\
+    make install
+
+RUN /usr/local/bin/luarocks install luasocket &&\
+    /usr/local/bin/luarocks install luasec &&\
+    /usr/local/bin/luarocks install net-url
+
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # no USER for backwards compatibility (to try to avoid breaking existing users)

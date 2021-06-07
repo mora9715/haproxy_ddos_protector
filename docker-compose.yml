@@ -9,6 +9,9 @@ services:
     volumes:
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
       - ./scripts/:/usr/local/etc/haproxy/scripts/
+    environment:
+      - HCAPTCHA_SECRET=${HCAPTCHA_SECRET}
+      - HCAPTCHA_SITEKEY=${HCAPTCHA_SITEKEY}
 
   nginx:
     image: "nginx:latest"
