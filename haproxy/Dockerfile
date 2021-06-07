@@ -113,7 +113,8 @@ RUN wget "https://luarocks.org/releases/luarocks-3.3.1.tar.gz" &&\
 
 RUN /usr/local/bin/luarocks install luasocket &&\
     /usr/local/bin/luarocks install luasec &&\
-    /usr/local/bin/luarocks install net-url
+    /usr/local/bin/luarocks install net-url &&\
+    /usr/local/bin/luarocks install md5
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 

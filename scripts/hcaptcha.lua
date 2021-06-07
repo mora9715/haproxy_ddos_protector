@@ -3,6 +3,9 @@ hcaptcha = {}
 local url = require("net.url")
 local https = require("ssl.https")
 local json = require("json")
+local utils = require("utils")
+
+local floating_hash = utils.get_floating_hash()
 
 function hcaptcha.view(applet)
     local hcaptcha_secret = os.getenv("HCAPTCHA_SECRET")
@@ -34,7 +37,7 @@ function hcaptcha.view(applet)
 
             if api_response.success == true then
                 print("HCAPTCHA SUCCESSFULLY PASSED")
-                print("... success captcha flow goes here ...")
+                applet:add_header("set-cookie", string.format("z_ddos_protection=%s; Max-Age=14400", floating_hash))
             else
                 print("HCAPTCHA FAILED", body)
             end
