@@ -7,6 +7,8 @@ local utils = require("utils")
 local cookie = require("cookie")
 local floating_hash = utils.get_floating_hash()
 
+local maximun_requests_per_expire = 5
+
 function hcaptcha.view(applet)
     local hcaptcha_secret = os.getenv("HCAPTCHA_SECRET")
     local hcaptcha_sitekey = os.getenv("HCAPTCHA_SITEKEY")
@@ -53,17 +55,27 @@ function hcaptcha.view(applet)
 end
 
 function hcaptcha.check_captcha_status(txn)
-    print("CAPTCHA STATUS CHECK START")
-    local raw_request_cookies = txn.sf:hdr("Cookie")
-    local parsed_request_cookies = cookie.get_cookie_table(raw_request_cookies)
+    local host = txn.sf:hdr("Host")
+    local current_requests_count = client:llen(host)
 
-    print("RECEIVED SECRET COOKIE: ", parsed_request_cookies["z_ddos_protection"])
-    print("OUR SECRET COOKIE: ", floating_hash)
+    print("CURRENT REQUESTS COUNT: ", current_requests_count)
+    print("MAXIMUM REQUESTS COUNT: ", maximun_requests_per_expire)
 
-    if parsed_request_cookies["z_ddos_protection"] == floating_hash then
-        print("CAPTCHA STATUS CHECK SUCCESS")
+    if current_requests_count > maximun_requests_per_expire then
+        print("CAPTCHA STATUS CHECK START")
+        local raw_request_cookies = txn.sf:hdr("Cookie")
+        local parsed_request_cookies = cookie.get_cookie_table(raw_request_cookies)
+
+        print("RECEIVED SECRET COOKIE: ", parsed_request_cookies["z_ddos_protection"])
+        print("OUR SECRET COOKIE: ", floating_hash)
+
+        if parsed_request_cookies["z_ddos_protection"] == floating_hash then
+            print("CAPTCHA STATUS CHECK SUCCESS")
+            return txn:set_var("txn.captcha_passed", true);
+        end
+
+        print("CAPTCHA STATUS CHECK FINISH")
+    else
         return txn:set_var("txn.captcha_passed", true);
     end
-
-    print("CAPTCHA STATUS CHECK FINISH")
 end
