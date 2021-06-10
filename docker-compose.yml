@@ -8,7 +8,9 @@ services:
       - 80:80
     volumes:
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
-      - ./scripts/:/usr/local/etc/haproxy/scripts/
+      - ./haproxy/domains_under_ddos.txt:/usr/local/etc/haproxy/domains_under_ddos.txt
+      - ./src/scripts/:/usr/local/etc/haproxy/scripts/
+      - ./src/libs/:/usr/local/etc/haproxy/libs/
     environment:
       - HCAPTCHA_SECRET=${HCAPTCHA_SECRET}
       - HCAPTCHA_SITEKEY=${HCAPTCHA_SITEKEY}

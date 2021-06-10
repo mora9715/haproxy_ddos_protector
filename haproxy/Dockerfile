@@ -97,7 +97,7 @@ ADD haproxy/docker-entrypoint.sh /usr/local/bin/
 RUN ln -s usr/local/bin/docker-entrypoint.sh / # backwards compat
 
 # This is terrible mess but we need it for simple testing purposes of our POC
-RUN apt-get update && apt-get install libssl-dev make nano wget gcc libreadline-dev unzip git -y
+RUN apt-get update && apt-get install libssl-dev make nano wget gcc libreadline-dev unzip git socat -y
 RUN wget http://www.lua.org/ftp/lua-5.3.5.tar.gz &&\
     tar -zxf lua-5.3.5.tar.gz &&\
     cd lua-5.3.5 &&\
