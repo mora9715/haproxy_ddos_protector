@@ -1,0 +1,197 @@
+#!/usr/bin/env bash
+
+HAPROXY_DDOS_DOMAINS_FILE="/usr/local/etc/haproxy/domains_under_ddos.txt"
+HAPROXY_GLOBAL_ACL="hdr_cnt"
+HAPROXY_SOCKET="/var/run/haproxy.sock"
+SOCAT="$(which socat)"
+
+DOMAIN_REGEX='(?=^.{5,254}$)(^(?:(?!\d+\.)[a-zA-Z0-9_\-]{1,63}\.?)+(?:[a-zA-Z]{2,})$)'
+
+_h_show_acl() {
+  if [[ ${1} ]]; then
+    local cmd="show acl #${1}"
+  else
+    local cmd="show acl"
+  fi
+  echo ${cmd} | ${SOCAT} ${HAPROXY_SOCKET} stdio
+}
+
+_h_add_acl() {
+  echo "add acl #${1} ${2}" | ${SOCAT} ${HAPROXY_SOCKET} stdio
+}
+
+_h_del_acl() {
+  echo "del acl #${1} ${2}" | ${SOCAT} ${HAPROXY_SOCKET} stdio
+}
+
+_help() {
+/bin/cat <<EOF
+Usage: $0 <command> [options]
+
+Command line interface to manage per-domain and global DDoS protection.
+
+optional arguments:
+  -h, --help                 Show this help message and exit.
+
+Commands:
+  Global management:
+  $0 global status           Show status of global server ddos mode.
+  $0 global enable           Enable global ddos mode.
+  $0 global disable          Disable global ddos mode.
+
+  Domain management:
+  $0 domain list             List all domains with ddos mode on.
+  $0 domain status <domain>  Get ddos mode status for a domain.
+  $0 domain add <domain>     Enable ddos mode for a domain.
+  $0 domain del <domain>     Disable ddos mode for a domain.
+EOF
+}
+
+_ensure_domain_passed() {
+  if ! [[ ${1} ]]; then
+    echo "Error: 'domain' argument is required for this action"
+    _help
+    exit 1
+  elif ! echo ${1} | grep -qP ${DOMAIN_REGEX}; then
+    echo "Error: '${1}' is not a valid domain"
+    _help
+    exit 1
+  fi
+}
+
+_domain_list() {
+  local domain_acl_id=$(_h_show_acl | grep ${HAPROXY_DDOS_DOMAINS_FILE} | cut -d' ' -f1)
+  _h_show_acl ${domain_acl_id} | cut -d' ' -f2
+}
+
+_domain_status() {
+  local ddos_domains="$(_domain_list)"
+  local global_ddos_acl_id=$(_h_show_acl | grep ${HAPROXY_GLOBAL_ACL} | cut -d' ' -f1)
+  local global_ddos_status=$(_h_show_acl ${global_ddos_acl_id} | cut -d' ' -f2)
+
+  if echo "${ddos_domains}" | grep -q "^${1}$"; then
+    echo "DDoS-protection mode is enabled for ${1}"
+  else
+    echo "DDoS-protection mode is disabled for ${1}"
+    if [[ ${global_ddos_status} -eq 0 ]]; then
+      echo "ATTENTION: DDoS-protection mode is enabled globally"
+    fi
+  fi
+}
+
+_domain_add() {
+  local ddos_domains="$(_domain_list)"
+
+  if echo "${ddos_domains}" | grep -q "^${1}$"; then
+    echo "DDoS-protection mode is already enabled for ${1}"
+    exit 0
+  fi
+
+  local domain_acl_id=$(_h_show_acl | grep ${HAPROXY_DDOS_DOMAINS_FILE} | cut -d' ' -f1)
+  _h_add_acl ${domain_acl_id} ${1} &>/dev/null
+
+  if ! grep -q "^${1}$" ${HAPROXY_DDOS_DOMAINS_FILE}; then
+    echo ${1} >> ${HAPROXY_DDOS_DOMAINS_FILE}
+  fi
+  echo "DDoS-protection mode was enabled for ${1}"
+}
+
+_domain_del() {
+  local ddos_domains="$(_domain_list)"
+
+  if ! echo "${ddos_domains}" | grep -q "^${1}$"; then
+    echo "DDoS-protection mode is already disabled for ${1}"
+    exit 0
+  fi
+
+  local domain_acl_id=$(_h_show_acl | grep ${HAPROXY_DDOS_DOMAINS_FILE} | cut -d' ' -f1)
+  _h_del_acl ${domain_acl_id} ${1} &>/dev/null
+
+  if grep -q "^${1}$" ${HAPROXY_DDOS_DOMAINS_FILE}; then
+    sed -i "/^${1}$/d" ${HAPROXY_DDOS_DOMAINS_FILE}
+  fi
+  echo "DDoS-protection mode was disabled for ${1}"
+}
+
+_global_status() {
+  local global_ddos_acl_id=$(_h_show_acl | grep ${HAPROXY_GLOBAL_ACL} | cut -d' ' -f1)
+  local global_ddos_status=$(_h_show_acl ${global_ddos_acl_id} | cut -d' ' -f2)
+
+  if [[ ${global_ddos_status} -eq 0 ]]; then
+    echo "DDoS-protection mode is enabled globally"
+  else
+    echo "DDoS-protection mode is disabled globally"
+  fi
+}
+
+_global_enable() {
+  local global_ddos_acl_id=$(_h_show_acl | grep ${HAPROXY_GLOBAL_ACL} | cut -d' ' -f1)
+  local global_ddos_status=$(_h_show_acl ${global_ddos_acl_id} | cut -d' ' -f2)
+
+  if [[ ${global_ddos_status} -eq 0 ]]; then
+    echo "DDoS-protection mode is already enabled globally"
+    exit 0
+  fi
+
+  _h_add_acl ${global_ddos_acl_id} 0 &>/dev/null
+  _h_del_acl ${global_ddos_acl_id} 1 &>/dev/null
+  echo "DDoS-protection mode was enabled globally"
+}
+
+_global_disable() {
+  local global_ddos_acl_id=$(_h_show_acl | grep ${HAPROXY_GLOBAL_ACL} | cut -d' ' -f1)
+  local global_ddos_status=$(_h_show_acl ${global_ddos_acl_id} | cut -d' ' -f2)
+
+  if [[ ${global_ddos_status} -eq 1 ]]; then
+    echo "DDoS-protection mode is already disabled globally"
+    exit 0
+  fi
+
+  _h_add_acl ${global_ddos_acl_id} 1 &>/dev/null
+  _h_del_acl ${global_ddos_acl_id} 0 &>/dev/null
+  echo "DDoS-protection mode was disabled globally"
+}
+
+_handle_global_management() {
+  case ${1} in
+      status) _global_status;;
+      enable) _global_enable;;
+      disable) _global_disable;;
+      *) _help; exit 1;;
+  esac
+}
+
+_handle_domain_management() {
+  case ${1} in
+      list) _domain_list;;
+      status)
+        _ensure_domain_passed ${2}
+        _domain_status $2;;
+      add)
+        _ensure_domain_passed ${2}
+        _domain_add $2;;
+      del)
+        _ensure_domain_passed ${2}
+        _domain_del $2;;
+      *) _help; exit 1;;
+  esac
+}
+
+if ! [[ "${@}" ]]; then
+  _help
+  exit 1
+fi
+
+for i in "${@}"; do
+  case ${i} in
+      -h|--help) _help; exit 0;;
+      domain) MODE=DOMAIN; shift; break;;
+      global) MODE=GLOBAL; shift; break;;
+      *) _help; exit 1;;
+  esac
+done
+
+case ${MODE} in
+  DOMAIN) _handle_domain_management ${@};;
+  GLOBAL) _handle_global_management ${@};;
+esac
