@@ -8,12 +8,13 @@ SOCAT="$(which socat)"
 DOMAIN_REGEX='(?=^.{5,254}$)(^(?:(?!\d+\.)[a-zA-Z0-9_\-]{1,63}\.?)+(?:[a-zA-Z]{2,})$)'
 
 _h_show_acl() {
+  local cmd
   if [[ ${1} ]]; then
-    local cmd="show acl #${1}"
+    cmd="show acl #${1}"
   else
-    local cmd="show acl"
+    cmd="show acl"
   fi
-  echo ${cmd} | ${SOCAT} ${HAPROXY_SOCKET} stdio
+  echo "${cmd}" | ${SOCAT} ${HAPROXY_SOCKET} stdio
 }
 
 _h_add_acl() {
@@ -52,7 +53,7 @@ _ensure_domain_passed() {
     echo "Error: 'domain' argument is required for this action"
     _help
     exit 1
-  elif ! echo ${1} | grep -qP ${DOMAIN_REGEX}; then
+  elif ! echo "${1}" | grep -qP "${DOMAIN_REGEX}"; then
     echo "Error: '${1}' is not a valid domain"
     _help
     exit 1
@@ -60,14 +61,19 @@ _ensure_domain_passed() {
 }
 
 _domain_list() {
-  local domain_acl_id=$(_h_show_acl | grep ${HAPROXY_DDOS_DOMAINS_FILE} | cut -d' ' -f1)
-  _h_show_acl ${domain_acl_id} | cut -d' ' -f2
+  local domain_acl_id
+  domain_acl_id=$(_h_show_acl | grep ${HAPROXY_DDOS_DOMAINS_FILE} | cut -d' ' -f1)
+  _h_show_acl "${domain_acl_id}" | cut -d' ' -f2
 }
 
 _domain_status() {
-  local ddos_domains="$(_domain_list)"
-  local global_ddos_acl_id=$(_h_show_acl | grep ${HAPROXY_GLOBAL_ACL} | cut -d' ' -f1)
-  local global_ddos_status=$(_h_show_acl ${global_ddos_acl_id} | cut -d' ' -f2)
+  local ddos_domains
+  local global_ddos_acl_id
+  local global_ddos_status
+
+  ddos_domains="$(_domain_list)"
+  global_ddos_acl_id=$(_h_show_acl | grep ${HAPROXY_GLOBAL_ACL} | cut -d' ' -f1)
+  global_ddos_status=$(_h_show_acl "${global_ddos_acl_id}" | cut -d' ' -f2)
 
   if echo "${ddos_domains}" | grep -q "^${1}$"; then
     echo "DDoS-protection mode is enabled for ${1}"
@@ -80,32 +86,38 @@ _domain_status() {
 }
 
 _domain_add() {
-  local ddos_domains="$(_domain_list)"
+  local ddos_domains
+  local domain_acl_id
+
+  ddos_domains="$(_domain_list)"
 
   if echo "${ddos_domains}" | grep -q "^${1}$"; then
     echo "DDoS-protection mode is already enabled for ${1}"
     exit 0
   fi
 
-  local domain_acl_id=$(_h_show_acl | grep ${HAPROXY_DDOS_DOMAINS_FILE} | cut -d' ' -f1)
-  _h_add_acl ${domain_acl_id} ${1} &>/dev/null
+  domain_acl_id=$(_h_show_acl | grep ${HAPROXY_DDOS_DOMAINS_FILE} | cut -d' ' -f1)
+  _h_add_acl "${domain_acl_id}" "${1}" &>/dev/null
 
   if ! grep -q "^${1}$" ${HAPROXY_DDOS_DOMAINS_FILE}; then
-    echo ${1} >> ${HAPROXY_DDOS_DOMAINS_FILE}
+    echo "${1}" >> ${HAPROXY_DDOS_DOMAINS_FILE}
   fi
   echo "DDoS-protection mode was enabled for ${1}"
 }
 
 _domain_del() {
-  local ddos_domains="$(_domain_list)"
+  local ddos_domains
+  local domain_acl_id
+
+  ddos_domains="$(_domain_list)"
 
   if ! echo "${ddos_domains}" | grep -q "^${1}$"; then
     echo "DDoS-protection mode is already disabled for ${1}"
     exit 0
   fi
 
-  local domain_acl_id=$(_h_show_acl | grep ${HAPROXY_DDOS_DOMAINS_FILE} | cut -d' ' -f1)
-  _h_del_acl ${domain_acl_id} ${1} &>/dev/null
+  domain_acl_id=$(_h_show_acl | grep ${HAPROXY_DDOS_DOMAINS_FILE} | cut -d' ' -f1)
+  _h_del_acl "${domain_acl_id}" "${1}" &>/dev/null
 
   if grep -q "^${1}$" ${HAPROXY_DDOS_DOMAINS_FILE}; then
     sed -i "/^${1}$/d" ${HAPROXY_DDOS_DOMAINS_FILE}
@@ -114,8 +126,11 @@ _domain_del() {
 }
 
 _global_status() {
-  local global_ddos_acl_id=$(_h_show_acl | grep ${HAPROXY_GLOBAL_ACL} | cut -d' ' -f1)
-  local global_ddos_status=$(_h_show_acl ${global_ddos_acl_id} | cut -d' ' -f2)
+  local global_ddos_acl_id
+  local global_ddos_status
+
+  global_ddos_acl_id=$(_h_show_acl | grep ${HAPROXY_GLOBAL_ACL} | cut -d' ' -f1)
+  global_ddos_status=$(_h_show_acl "${global_ddos_acl_id}" | cut -d' ' -f2)
 
   if [[ ${global_ddos_status} -eq 0 ]]; then
     echo "DDoS-protection mode is enabled globally"
@@ -125,30 +140,36 @@ _global_status() {
 }
 
 _global_enable() {
-  local global_ddos_acl_id=$(_h_show_acl | grep ${HAPROXY_GLOBAL_ACL} | cut -d' ' -f1)
-  local global_ddos_status=$(_h_show_acl ${global_ddos_acl_id} | cut -d' ' -f2)
+  local global_ddos_acl_id
+  local global_ddos_status
+
+  global_ddos_acl_id=$(_h_show_acl | grep ${HAPROXY_GLOBAL_ACL} | cut -d' ' -f1)
+  global_ddos_status=$(_h_show_acl "${global_ddos_acl_id}" | cut -d' ' -f2)
 
   if [[ ${global_ddos_status} -eq 0 ]]; then
     echo "DDoS-protection mode is already enabled globally"
     exit 0
   fi
 
-  _h_add_acl ${global_ddos_acl_id} 0 &>/dev/null
-  _h_del_acl ${global_ddos_acl_id} 1 &>/dev/null
+  _h_add_acl "${global_ddos_acl_id}" 0 &>/dev/null
+  _h_del_acl "${global_ddos_acl_id}" 1 &>/dev/null
   echo "DDoS-protection mode was enabled globally"
 }
 
 _global_disable() {
-  local global_ddos_acl_id=$(_h_show_acl | grep ${HAPROXY_GLOBAL_ACL} | cut -d' ' -f1)
-  local global_ddos_status=$(_h_show_acl ${global_ddos_acl_id} | cut -d' ' -f2)
+  local global_ddos_acl_id
+  local global_ddos_status
+
+  global_ddos_acl_id=$(_h_show_acl | grep ${HAPROXY_GLOBAL_ACL} | cut -d' ' -f1)
+  global_ddos_status=$(_h_show_acl "${global_ddos_acl_id}" | cut -d' ' -f2)
 
   if [[ ${global_ddos_status} -eq 1 ]]; then
     echo "DDoS-protection mode is already disabled globally"
     exit 0
   fi
 
-  _h_add_acl ${global_ddos_acl_id} 1 &>/dev/null
-  _h_del_acl ${global_ddos_acl_id} 0 &>/dev/null
+  _h_add_acl "${global_ddos_acl_id}" 1 &>/dev/null
+  _h_del_acl "${global_ddos_acl_id}" 0 &>/dev/null
   echo "DDoS-protection mode was disabled globally"
 }
 
@@ -165,19 +186,19 @@ _handle_domain_management() {
   case ${1} in
       list) _domain_list;;
       status)
-        _ensure_domain_passed ${2}
-        _domain_status $2;;
+        _ensure_domain_passed "${2}"
+        _domain_status "${2}";;
       add)
-        _ensure_domain_passed ${2}
-        _domain_add $2;;
+        _ensure_domain_passed "${2}"
+        _domain_add "${2}";;
       del)
-        _ensure_domain_passed ${2}
-        _domain_del $2;;
+        _ensure_domain_passed "${2}"
+        _domain_del "${2}";;
       *) _help; exit 1;;
   esac
 }
 
-if ! [[ "${@}" ]]; then
+if ! [[ "${*}" ]]; then
   _help
   exit 1
 fi
@@ -192,6 +213,6 @@ for i in "${@}"; do
 done
 
 case ${MODE} in
-  DOMAIN) _handle_domain_management ${@};;
-  GLOBAL) _handle_global_management ${@};;
+  DOMAIN) _handle_domain_management "${@}";;
+  GLOBAL) _handle_global_management "${@}";;
 esac
