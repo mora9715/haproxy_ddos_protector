@@ -1,0 +1,32 @@
+@startuml
+actor       Browser as user
+participant Proxy as proxy
+participant "Captcha Provider" as captcha
+participant "Backend" as backend
+user -> proxy: Request /resource?foo=bar
+activate proxy
+proxy -> user: Redirect /{captcha_url}
+deactivate proxy
+
+user -> captcha: Submit challenge
+activate captcha
+captcha -> user: Pass challenge result hash
+deactivate captcha
+user -> proxy: Submit captcha form
+
+activate proxy
+proxy -> captcha: Validate challenge results
+activate captcha
+captcha -> proxy: Pass validation results
+deactivate captcha
+proxy -> user: Redirect /resource?foo=bar
+deactivate proxy
+user -> proxy: Request /resource?foo=bar
+activate proxy
+proxy -> backend: Request /resource?foo=bar
+activate backend
+backend -> proxy: Serve /resource?foo=bar
+deactivate backend
+proxy -> user: Serve /resource?foo=bar
+deactivate proxy
+@enduml
