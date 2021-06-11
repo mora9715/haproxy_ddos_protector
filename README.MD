@@ -51,3 +51,10 @@ Commands:
   ./ddos-cli domain add <domain>     Enable ddos mode for a domain.
   ./ddos-cli domain del <domain>     Disable ddos mode for a domain.
 ```
+
+
+#### TO DO
+- [x] Add CLI
+- [ ] Add logging to CLI
+- [ ] Make per-user cookie secrets
+- [ ] Organize lua dependencies
