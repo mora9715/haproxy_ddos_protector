@@ -2,7 +2,7 @@ _M = {}
 
 local url = require("net.url")
 local https = require("ssl.https")
-local json = require("json")
+local json = require("rapidjson")
 local utils = require("utils")
 local cookie = require("cookie")
 
@@ -55,7 +55,7 @@ function _M.view(applet)
                 parsed_body["h-captcha-response"]
             )
             local body, _, _, _ = https.request(url)
-            local api_response = json:decode(body)
+            local api_response = json.decode(body)
 
             if api_response.success == true then
                 core.Debug("HCAPTCHA SUCCESSFULLY PASSED")
