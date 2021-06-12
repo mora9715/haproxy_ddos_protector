@@ -28,9 +28,22 @@ docker compose up
 
 For demostration purposes DDoS-protection mode was enabled by default.
 
+#### Installation
+Before installing the tool, ensure that HaProxy is built with Lua support.
+
+- Install lua dependencies:
+```bash
+luarocks install --only-deps dependencies-0-0.rockspec
+```
+- Copy [scripts](src/scripts) to a folder accessible for HaProxy
+- Copy haproxy config and make sure that `lua-load` directive contains absolute path to [register.lua](src/scripts/register.lua)
+- Copy [libs](src/libs) to a path where Lua looks for modules.
+- Copy [ddos-cli](src/cli/ddos-cli) to any convenient path.
+- Create `/usr/local/etc/haproxy/domains_under_ddos.txt` with write permissions for HaProxy (feel free to change the map file path, update the HaProxy config correspondingly)
 
 #### CLI
-The system comes with CLI. It can be used to manage global and per-domain protection:
+The system comes with CLI. It can be used to manage global and per-domain protection.
+Ensure that stat socket is configured in HaProxy for CLI support.
 ```bash
 Usage: ./ddos-cli <command> [options]
 
