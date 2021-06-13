@@ -43,8 +43,8 @@ Commands:
   Domain management:
   $0 domain list             List all domains with ddos mode on.
   $0 domain status <domain>  Get ddos mode status for a domain.
-  $0 domain add <domain>     Enable ddos mode for a domain.
-  $0 domain del <domain>     Disable ddos mode for a domain.
+  $0 domain enable <domain>  Enable ddos mode for a domain.
+  $0 domain disable <domain> Disable ddos mode for a domain.
 EOF
 }
 
@@ -85,7 +85,7 @@ _domain_status() {
   fi
 }
 
-_domain_add() {
+_domain_enable() {
   local ddos_domains
   local domain_acl_id
 
@@ -105,7 +105,7 @@ _domain_add() {
   echo "DDoS-protection mode was enabled for ${1}"
 }
 
-_domain_del() {
+_domain_disable() {
   local ddos_domains
   local domain_acl_id
 
@@ -129,7 +129,7 @@ _global_status() {
   local global_ddos_acl_id
   local global_ddos_status
 
-  global_ddos_acl_id=$(_h_show_acl | grep ${HAPROXY_GLOBAL_ACL} | cut -d' ' -f1)
+  global_ddos_acl_id=$(_h_show_acl | grep ${HAPROXY_GLOBAL_ACL} | head -1 | cut -d' ' -f1)
   global_ddos_status=$(_h_show_acl "${global_ddos_acl_id}" | cut -d' ' -f2)
 
   if [[ ${global_ddos_status} -eq 0 ]]; then
@@ -140,36 +140,40 @@ _global_status() {
 }
 
 _global_enable() {
-  local global_ddos_acl_id
+  declare -a global_ddos_acl_ids
   local global_ddos_status
 
-  global_ddos_acl_id=$(_h_show_acl | grep ${HAPROXY_GLOBAL_ACL} | cut -d' ' -f1)
-  global_ddos_status=$(_h_show_acl "${global_ddos_acl_id}" | cut -d' ' -f2)
+  global_ddos_acl_ids=($(_h_show_acl | grep ${HAPROXY_GLOBAL_ACL} | cut -d' ' -f1))
+  global_ddos_status=$(_h_show_acl "${global_ddos_acl_ids[0]}" | cut -d' ' -f2)
 
   if [[ ${global_ddos_status} -eq 0 ]]; then
     echo "DDoS-protection mode is already enabled globally"
     exit 0
   fi
 
-  _h_add_acl "${global_ddos_acl_id}" 0 &>/dev/null
-  _h_del_acl "${global_ddos_acl_id}" 1 &>/dev/null
+  for id in "${global_ddos_acl_ids[@]}"; do
+    _h_add_acl "${id}" 0 &>/dev/null
+    _h_del_acl "${id}" 1 &>/dev/null
+  done
   echo "DDoS-protection mode was enabled globally"
 }
 
 _global_disable() {
-  local global_ddos_acl_id
+  declare -a global_ddos_acl_ids
   local global_ddos_status
 
-  global_ddos_acl_id=$(_h_show_acl | grep ${HAPROXY_GLOBAL_ACL} | cut -d' ' -f1)
-  global_ddos_status=$(_h_show_acl "${global_ddos_acl_id}" | cut -d' ' -f2)
+  global_ddos_acl_ids=($(_h_show_acl | grep ${HAPROXY_GLOBAL_ACL} | cut -d' ' -f1))
+  global_ddos_status=$(_h_show_acl "${global_ddos_acl_ids[0]}" | cut -d' ' -f2)
 
   if [[ ${global_ddos_status} -eq 1 ]]; then
     echo "DDoS-protection mode is already disabled globally"
     exit 0
   fi
 
-  _h_add_acl "${global_ddos_acl_id}" 1 &>/dev/null
-  _h_del_acl "${global_ddos_acl_id}" 0 &>/dev/null
+  for id in "${global_ddos_acl_ids[@]}"; do
+    _h_add_acl "${id}" 1 &>/dev/null
+    _h_del_acl "${id}" 0 &>/dev/null
+  done
   echo "DDoS-protection mode was disabled globally"
 }
 
@@ -188,12 +192,12 @@ _handle_domain_management() {
       status)
         _ensure_domain_passed "${2}"
         _domain_status "${2}";;
-      add)
+      enable)
         _ensure_domain_passed "${2}"
-        _domain_add "${2}";;
-      del)
+        _domain_enable "${2}";;
+      disable)
         _ensure_domain_passed "${2}"
-        _domain_del "${2}";;
+        _domain_disable "${2}";;
       *) _help; exit 1;;
   esac
 }

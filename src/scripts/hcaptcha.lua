@@ -1,14 +1,17 @@
 _M = {}
 
-local url = require("net.url")
-local https = require("ssl.https")
-local json = require("rapidjson")
+local url = require("url")
+local http = require("http")
 local utils = require("utils")
 local cookie = require("cookie")
+local json = require("json")
 
-local floating_hash = utils.get_floating_hash()
-local hcaptcha_secret = os.getenv("HCAPTCHA_SECRET")
-local hcaptcha_sitekey = os.getenv("HCAPTCHA_SITEKEY")
+local captcha_secret = os.getenv("HCAPTCHA_SECRET")
+local captcha_sitekey = os.getenv("HCAPTCHA_SITEKEY")
+
+-- HaProxy Lua is not capable of FQDN resolution :(
+local captcha_provider_domain = "hcaptcha.com"
+local captcha_provider_ip = utils.resolve_fqdn(captcha_provider_domain)
 
 function _M.view(applet)
     local response_body
@@ -42,7 +45,7 @@ function _M.view(applet)
             </body>
         </html>
         ]]
-        response_body = string.format(response_body, hcaptcha_sitekey)
+        response_body = string.format(response_body, captcha_sitekey)
         response_status_code = 200
     elseif applet.method == "POST" then
         local parsed_body = url.parseQuery(applet.receive(applet))
@@ -50,21 +53,29 @@ function _M.view(applet)
         if parsed_body["h-captcha-response"] then
             local url =
                 string.format(
-                "https://hcaptcha.com/siteverify?secret=%s&response=%s",
-                hcaptcha_secret,
+                "https://%s/siteverify?secret=%s&response=%s",
+                captcha_provider_ip,
+                captcha_secret,
                 parsed_body["h-captcha-response"]
             )
-            local body, _, _, _ = https.request(url)
-            local api_response = json.decode(body)
+            local res, err = http.get{url=url, headers={host=captcha_provider_domain} }
+            local status, api_response = pcall(res.json, res)
+
+            if not status then
+                local original_error = api_response
+                api_response = {}
+                core.Warning("Received incorrect response from Captcha Provider: " .. original_error)
+            end
 
             if api_response.success == true then
+                local floating_hash = applet.sc:xxh32(utils.get_hostname())
                 core.Debug("HCAPTCHA SUCCESSFULLY PASSED")
                 applet:add_header(
                     "set-cookie",
                     string.format("z_ddos_protection=%s; Max-Age=14400; Path=/", floating_hash)
                 )
             else
-                core.Debug("HCAPTCHA FAILED: " .. body)
+                core.Debug("HCAPTCHA FAILED: " .. json.encode(api_response))
             end
         end
 
@@ -84,11 +95,12 @@ function _M.check_captcha_status(txn)
     core.Debug("CAPTCHA STATUS CHECK START")
     txn:set_var("txn.requested_url", "/mopsik?kek=pek")
     local parsed_request_cookies = cookie.get_cookie_table(txn.sf:hdr("Cookie"))
+    local expected_cookie = txn.sc:xxh32(utils.get_hostname())
 
     core.Debug("RECEIVED SECRET COOKIE: " .. parsed_request_cookies["z_ddos_protection"])
-    core.Debug("OUR SECRET COOKIE: " .. floating_hash)
+    core.Debug("OUR SECRET COOKIE: " .. expected_cookie)
 
-    if parsed_request_cookies["z_ddos_protection"] == floating_hash then
+    if parsed_request_cookies["z_ddos_protection"] == expected_cookie then
         core.Debug("CAPTCHA STATUS CHECK SUCCESS")
         return txn:set_var("txn.captcha_passed", true)
     end

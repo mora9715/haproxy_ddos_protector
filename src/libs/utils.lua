@@ -1,17 +1,18 @@
 local _M = {}
-local md5 = require("md5")
 
 function _M.get_hostname()
-    local f = io.popen ("/bin/hostname")
-    local hostname = f:read("*a") or ""
-    f:close()
+    local handler = io.popen ("/bin/hostname")
+    local hostname = handler:read("*a") or ""
+    handler:close()
     hostname =string.gsub(hostname, "\n$", "")
     return hostname
 end
 
-function _M.get_floating_hash()
-    -- This ensures that a cookie is rotated every day
-    return md5.sumhexa(_M.get_hostname() .. os.date("%d"))
+function _M.resolve_fqdn(fqdn)
+    local handler = io.popen(string.format("dig +short %s | head -1", fqdn))
+    local result = handler:read("*a")
+    handler:close()
+    return result:gsub("\n", "")
 end
 
 return _M

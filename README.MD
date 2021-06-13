@@ -31,10 +31,6 @@ For demostration purposes DDoS-protection mode was enabled by default.
 #### Installation
 Before installing the tool, ensure that HaProxy is built with Lua support.
 
-- Install lua dependencies:
-```bash
-luarocks install --only-deps dependencies-0-0.rockspec
-```
 - Copy [scripts](src/scripts) to a folder accessible for HaProxy
 - Copy haproxy config and make sure that `lua-load` directive contains absolute path to [register.lua](src/scripts/register.lua)
 - Copy [libs](src/libs) to a path where Lua looks for modules.
@@ -45,7 +41,7 @@ luarocks install --only-deps dependencies-0-0.rockspec
 The system comes with CLI. It can be used to manage global and per-domain protection.
 Ensure that stat socket is configured in HaProxy for CLI support.
 ```bash
-Usage: ./ddos-cli <command> [options]
+Usage: ddos-cli <command> [options]
 
 Command line interface to manage per-domain and global DDoS protection.
 
@@ -53,16 +49,17 @@ optional arguments:
   -h, --help                         Show this help message and exit.
 
 Commands:
-  Global management:
-  ./ddos-cli global status           Show status of global server ddos mode.
-  ./ddos-cli global enable           Enable global ddos mode.
-  ./ddos-cli global disable          Disable global ddos mode.
+ Global management:
+  ddos-cli global status             Show status of global server ddos mode.
+  ddos-cli global enable             Enable global ddos mode.
+  ddos-cli global disable            Disable global ddos mode.
 
-  Domain management:
-  ./ddos-cli domain list             List all domains with ddos mode on.
-  ./ddos-cli domain status <domain>  Get ddos mode status for a domain.
-  ./ddos-cli domain add <domain>     Enable ddos mode for a domain.
-  ./ddos-cli domain del <domain>     Disable ddos mode for a domain.
+ Domain management:
+  ddos-cli domain list               List all domains with ddos mode on.
+  ddos-cli domain status <domain>    Get ddos mode status for a domain.
+  ddos-cli domain enable <domain>    Enable ddos mode for a domain.
+  ddos-cli domain disable <domain>   Disable ddos mode for a domain.
+
 ```
 
 
