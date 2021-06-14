@@ -66,5 +66,5 @@ Commands:
 #### TO DO
 - [x] Add CLI
 - [x] Organize lua dependencies
+- [x] Make per-user cookie secrets
 - [ ] Add logging to CLI
-- [ ] Make per-user cookie secrets

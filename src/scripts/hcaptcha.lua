@@ -68,7 +68,7 @@ function _M.view(applet)
             end
 
             if api_response.success == true then
-                local floating_hash = applet.sc:xxh32(utils.get_hostname())
+                local floating_hash = utils.generate_secret{context=applet, mode='service'}
                 core.Debug("HCAPTCHA SUCCESSFULLY PASSED")
                 applet:add_header(
                     "set-cookie",
@@ -95,7 +95,7 @@ function _M.check_captcha_status(txn)
     core.Debug("CAPTCHA STATUS CHECK START")
     txn:set_var("txn.requested_url", "/mopsik?kek=pek")
     local parsed_request_cookies = cookie.get_cookie_table(txn.sf:hdr("Cookie"))
-    local expected_cookie = txn.sc:xxh32(utils.get_hostname())
+    local expected_cookie = utils.generate_secret{context=txn, mode='service'}
 
     core.Debug("RECEIVED SECRET COOKIE: " .. parsed_request_cookies["z_ddos_protection"])
     core.Debug("OUR SECRET COOKIE: " .. expected_cookie)
